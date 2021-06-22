@@ -44,7 +44,6 @@ block content %}
 			<i class="fas fa-moon"></i> Not currently seeking talent
 		</p>
 		{% endif %}
-		<button id = "delete_button" data-id = "{{venue.id}}"> DELETE </button>
 	</div>
 	<div class="col-sm-6">
 		<img src="{{ venue.image_link }}" alt="Venue Image" />
@@ -87,7 +86,10 @@ block content %}
 		</div>
 		{% endfor %}
 	</div>
+
 </section>
+<a href="/venues/{{ venue.id }}/edit"><button class="btn btn-primary btn-lg">Edit</button></a>
+<button class="btn btn-primary btn-lg" id = "delete_button" data-id = "{{venue.id}}"> DELETE </button>
 
 
 <script>
