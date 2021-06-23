@@ -59,24 +59,21 @@ def index():
 
 @app.route('/venues')
 def venues():
-  all_areas = Venue.query.with_entities(func.count(Venue.id), Venue.city, Venue.state).group_by(Venue.city, Venue.state).all()
-
-  data = []
-  for area in all_areas:
-    area_venues = Venue.query.filter_by(state=area.state).filter_by(city=area.city).all()
-    venue_data = []
-    for venue in area_venues:
-      venue_data.append({
-        "id": venue.id,
-        "name": venue.name, 
-        "num_upcoming_shows": len(db.session.query(Show).filter(Show.venue_id==1).filter(Show.start_time>datetime.now()).all())
+  locals = []
+  venues = Venue.query.all()
+  places = Venue.query.distinct(Venue.city, Venue.state).all()
+  for place in places:
+      locals.append({
+          'city': place.city,
+          'state': place.state,
+          'venues': [{
+              'id': venue.id,
+              'name': venue.name,
+              'num_upcoming_shows': len([show for show in venue.shows if show.start_time > datetime.now()])
+          } for venue in venues if
+              venue.city == place.city and venue.state == place.state]
       })
-    data.append({
-      "city": area.city,
-      "state": area.state, 
-      "venues": venue_data
-    })
-  return render_template('pages/venues.html', areas=data);
+  return render_template('pages/venues.html', areas=locals)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -101,32 +98,23 @@ def search_venues():
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
   
-  venue = Venue.query.get(venue_id)
-
-  if not venue: 
-    return render_template('errors/404.html')
-
-  upcoming_shows_query = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
+  venue = Venue.query.get_or_404(venue_id)
+  past_shows = []
   upcoming_shows = []
 
-  past_shows_query = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time<datetime.now()).all()
-  past_shows = []
-
-  for show in past_shows_query:
-    past_shows.append({
-      "artist_id": show.artist_id,
-      "artist_name": show.artist.name,
-      "artist_image_link": show.artist.image_link,
-      "start_time": show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
-    })
-
-  for show in upcoming_shows_query:
-    upcoming_shows.append({
-      "artist_id": show.artist_id,
-      "artist_name": show.artist.name,
-      "artist_image_link": show.artist.image_link,
-      "start_time": show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
-    })
+  venue = Venue.query.get_or_404(venue_id)
+  shows = db.session.query(Show).join(Venue, Venue.id == Show.venue_id).filter(Venue.id == venue_id).all()
+  for show in shows:
+      temp_show = {
+          'artist_id': show.artist_id,
+          'artist_name': show.artist.name,
+          'artist_image_link': show.artist.image_link,
+          'start_time': show.start_time.strftime("%m/%d/%Y, %H:%M")
+      }
+      if show.start_time <= datetime.now():
+          past_shows.append(temp_show)
+      else:
+          upcoming_shows.append(temp_show)
 
   data = {
     "id": venue.id,
@@ -231,32 +219,22 @@ def search_artists():
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
-  artist_query = db.session.query(Artist).get(artist_id)
+  artist_query = db.session.query(Artist).get_or_404(artist_id)
 
-  if not artist_query: 
-    return render_template('errors/404.html')
-
-  past_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
+  shows = db.session.query(Show).join(Artist, Artist.id == Show.artist_id).filter(Artist.id == artist_id).all()
   past_shows = []
-
-  for show in past_shows_query:
-    past_shows.append({
-      "venue_id": show.venue_id,
-      "venue_name": show.venue.name,
-      "artist_image_link": show.venue.image_link,
-      "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
-    })
-
-  upcoming_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
   upcoming_shows = []
-
-  for show in upcoming_shows_query:
-    upcoming_shows.append({
-      "venue_id": show.venue_id,
-      "venue_name": show.venue.name,
-      "artist_image_link": show.venue.image_link,
-      "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
-    })
+  for show in shows:
+      temp_show = {
+          'venue_id': show.venue_id,
+          'venue_name': show.venue.name,
+          'venue_image_link': show.venue.image_link,
+          'start_time': show.start_time.strftime("%m/%d/%Y, %H:%M")
+      }
+      if show.start_time <= datetime.now():
+          past_shows.append(temp_show)
+      else:
+          upcoming_shows.append(temp_show)
 
 
   data = {
@@ -283,22 +261,9 @@ def show_artist(artist_id):
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
-  form = ArtistForm()
-  artist = Artist.query.get(artist_id)
-
-  if artist: 
-    form.name.data = artist.name
-    form.city.data = artist.city
-    form.state.data = artist.state
-    form.phone.data = artist.phone
-    form.genres.data = artist.genres
-    form.facebook_link.data = artist.facebook_link
-    form.image_link.data = artist.image_link
-    form.website_link.data = artist.website_link
-    form.seeking_venue.data = artist.seeking_venue
-    form.seeking_description.data = artist.seeking_description
-
-  return render_template('forms/edit_artist.html', form=form, artist=artist)
+    artist = Artist.query.filter_by(id=artist_id).first_or_404()
+    form = ArtistForm(obj=artist)
+    return render_template('forms/edit_artist.html', form=form, artist=artist)
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
@@ -390,35 +355,30 @@ def create_artist_form():
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-    form = ArtistForm(request.form, meta={'csrf': False})
-    if form.validate():
-        try:
-            artist = Artist(
-                name=form.name.data,
-                city=form.city.data,
-                state=form.state.data,
-                phone=form.phone.data,
-                genres=form.genres.data,
-                facebook_link=form.facebook_link.data,
-                image_link=form.image_link.data,
-                website_link=form.website_link.data,
-                seeking_venue=form.seeking_venue.data,
-                seeking_description=form.seeking_description.data
-            )
-            db.session.add(artist)
-            db.session.commit()
-            flash('Artist ' + form.name.data + ' was successfully listed!')
-        except ValueError as e:
-            print(e)
-            db.session.rollback()
-            flash('An error occurred. Artist ' + form.name.data + ' could not be listed.')
-        finally:
-            db.session.close()
-    else:
-        message = []
-        for field, errors in form.errors.items():
-            message.append(field + ': (' + '|'.join(errors) + ')')
+  form = ArtistForm()
+  error = False
+  try:
+    artist = Artist(name=form.name.data,
+                  city=form.city.data,
+                  state=form.state.data,
+                  phone=form.phone.data,
+                  genres=form.genres.data,
+                  website_link =form.website_link.data, 
+                  seeking_venue=form.seeking_venue.data,
+                  seeking_description=form.seeking_description.data,
+                  image_link=form.image_link.data, 
+                  facebook_link=form.facebook_link.data)
+    db.session.add(artist)
+    db.session.commit()
+    flash('Artist ' + request.form['name'] + ' was successfully listed!')
     return render_template('pages/home.html')
+  except ValueError as e:
+      print(e)
+      db.session.rollback()
+      flash('An error occurred. Artist could not be listed.')
+  finally:
+    db.session.close()
+  return render_template('pages/home.html')
 
 #  Shows
 #  ----------------------------------------------------------------
