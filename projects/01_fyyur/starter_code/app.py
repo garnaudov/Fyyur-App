@@ -406,29 +406,35 @@ def create_artist_form():
 def create_artist_submission():
     form = ArtistForm()
     error = False
-    try:
-        artist = Artist(
-            name=form.name.data,
-            city=form.city.data,
-            state=form.state.data,
-            phone=form.phone.data,
-            genres=form.genres.data,
-            website_link=form.website_link.data,
-            seeking_venue=form.seeking_venue.data,
-            seeking_description=form.seeking_description.data,
-            image_link=form.image_link.data,
-            facebook_link=form.facebook_link.data,
-        )
-        db.session.add(artist)
-        db.session.commit()
-        flash("Artist " + request.form["name"] + " was successfully listed!")
-        return render_template("pages/home.html")
-    except ValueError as e:
-        print(e)
-        db.session.rollback()
-        flash("An error occurred. Artist could not be listed.")
-    finally:
-        db.session.close()
+    if form.validate():
+        try:
+            artist = Artist(
+                name=form.name.data,
+                city=form.city.data,
+                state=form.state.data,
+                phone=form.phone.data,
+                genres=form.genres.data,
+                website_link=form.website_link.data,
+                seeking_venue=form.seeking_venue.data,
+                seeking_description=form.seeking_description.data,
+                image_link=form.image_link.data,
+                facebook_link=form.facebook_link.data,
+            )
+            db.session.add(artist)
+            db.session.commit()
+            flash("Artist " + request.form["name"] + " was successfully listed!")
+            return render_template("pages/home.html")
+        except ValueError as e:
+            print(e)
+            db.session.rollback()
+            flash("An error occurred. Artist could not be listed.")
+        finally:
+            db.session.close()
+    else:
+        message = []
+        for field, errors in form.errors.items():
+            message.append(field + ": (" + "|".join(errors) + ")")
+        flash("Entered data for the artist is not valid.")
     return render_template("pages/home.html")
 
 
