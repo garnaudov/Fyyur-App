@@ -158,6 +158,7 @@ def show_venue(venue_id):
         "website_link": venue.website_link,
         "image_link": venue.image_link,
         "seeking_talent": venue.seeking_talent,
+        "seeking_description": venue.seeking_description,
         "upcoming_shows": upcoming_shows,
         "past_shows": past_shows,
         "past_shows_count": len(past_shows),
@@ -304,6 +305,7 @@ def show_artist(artist_id):
         "website_link": artist.website_link,
         "image_link": artist.image_link,
         "seeking_venue": artist.seeking_venue,
+        "seeking_description": artist.seeking_description,
         "upcoming_shows": upcoming_shows,
         "past_shows": past_shows,
         "past_shows_count": len(past_shows),
@@ -312,11 +314,13 @@ def show_artist(artist_id):
 
     return render_template("pages/show_artist.html", artist=atist_object_with_shows)
 
+
 #  Update
 #  ----------------------------------------------------------------
 @app.route("/artists/<int:artist_id>/edit", methods=["GET"])
 def edit_artist(artist_id):
     artist = Artist.query.filter_by(id=artist_id).first_or_404()
+
     form = ArtistForm(obj=artist)
     return render_template("forms/edit_artist.html", form=form, artist=artist)
 
@@ -398,13 +402,13 @@ def edit_venue_submission(venue_id):
 
 @app.route("/artists/create", methods=["GET"])
 def create_artist_form():
-    form = ArtistForm()
+    form = ArtistForm(request.form, meta={'csrf': False})
     return render_template("forms/new_artist.html", form=form)
 
 
 @app.route("/artists/create", methods=["POST"])
 def create_artist_submission():
-    form = ArtistForm()
+    form = ArtistForm(request.form, meta={'csrf': False})
     error = False
     if form.validate():
         try:
