@@ -127,9 +127,8 @@ def search_venues():
 def show_venue(venue_id):
 
     venue = Venue.query.get_or_404(venue_id)
-    past_shows = []
     upcoming_shows = []
-
+    past_shows = []
     shows = (
         db.session.query(Show)
         .join(Venue, Venue.id == Show.venue_id)
@@ -148,7 +147,24 @@ def show_venue(venue_id):
         else:
             upcoming_shows.append(temp_show)
 
-    return render_template("pages/show_venue.html", venue=venue)
+    venue_object_with_shows = {
+        "id": venue.id,
+        "name": venue.name,
+        "city": venue.city,
+        "address": venue.address,
+        "phone": venue.phone,
+        "genres": venue.genres,
+        "facebook_link": venue.facebook_link,
+        "website_link": venue.website_link,
+        "image_link": venue.image_link,
+        "seeking_talent": venue.seeking_talent,
+        "upcoming_shows": upcoming_shows,
+        "past_shows": past_shows,
+        "past_shows_count": len(past_shows),
+        "upcoming_shows_count": len(upcoming_shows),
+    }
+
+    return render_template("pages/show_venue.html", venue=venue_object_with_shows)
 
 
 #  Create Venue
@@ -183,17 +199,18 @@ def create_venue_submission():
             db.session.commit()
             flash("Venue " + form.name.data + " was successfully listed!")
         except ValueError as e:
+            print(e)
             db.session.rollback()
             flash(
                 "An error occurred. Venue " + form.name.data + " could not be listed."
             )
-            print(e)
         finally:
             db.session.close()
     else:
         message = []
         for field, errors in form.errors.items():
             message.append(field + ": (" + "|".join(errors) + ")")
+        flash("Entered data for the venue is not valid.")
     return render_template("pages/home.html")
 
 
@@ -254,7 +271,9 @@ def search_artists():
 
 @app.route("/artists/<int:artist_id>")
 def show_artist(artist_id):
-    artist_query = db.session.query(Artist).get_or_404(artist_id)
+    artist = db.session.query(Artist).get_or_404(artist_id)
+    upcoming_shows = []
+    past_shows = []
 
     shows = (
         db.session.query(Show)
@@ -262,8 +281,7 @@ def show_artist(artist_id):
         .filter(Artist.id == artist_id)
         .all()
     )
-    past_shows = []
-    upcoming_shows = []
+
     for show in shows:
         temp_show = {
             "venue_id": show.venue_id,
@@ -276,8 +294,23 @@ def show_artist(artist_id):
         else:
             upcoming_shows.append(temp_show)
 
-    return render_template("pages/show_artist.html", artist=artist_query)
+    atist_object_with_shows = {
+        "id": artist.id,
+        "name": artist.name,
+        "city": artist.city,
+        "phone": artist.phone,
+        "genres": artist.genres,
+        "facebook_link": artist.facebook_link,
+        "website_link": artist.website_link,
+        "image_link": artist.image_link,
+        "seeking_venue": artist.seeking_venue,
+        "upcoming_shows": upcoming_shows,
+        "past_shows": past_shows,
+        "past_shows_count": len(past_shows),
+        "upcoming_shows_count": len(upcoming_shows),
+    }
 
+    return render_template("pages/show_artist.html", artist=atist_object_with_shows)
 
 #  Update
 #  ----------------------------------------------------------------
@@ -434,7 +467,7 @@ def create_shows():
 
 @app.route("/shows/create", methods=["POST"])
 def create_show_submission():
-    form = ShowForm(request.form)
+    form = ShowForm(request.form, meta={"csrf": False})
     if form.validate():
         try:
             show = Show(
